@@ -15,7 +15,7 @@
 package asserter
 
 import (
-	"github.com/coinbase/rosetta-sdk-go/types"
+	"github.com/guapcrypto/rosetta-sdk-go/types"
 )
 
 // SearchTransactionsResponse ensures a
@@ -29,10 +29,6 @@ func (a *Asserter) SearchTransactionsResponse(
 
 	if response.NextOffset != nil && *response.NextOffset < 0 {
 		return ErrNextOffsetInvalid
-	}
-
-	if response.TotalCount < 0 {
-		return ErrTotalCountInvalid
 	}
 
 	for _, blockTransaction := range response.Transactions {

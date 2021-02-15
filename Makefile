@@ -38,7 +38,8 @@ lint-examples:
 	golangci-lint run -v -E ${LINT_SETTINGS}
 
 lint: | lint-examples
-	golangci-lint run --timeout 2m0s -v -E ${LINT_SETTINGS},gomnd
+	golangci-lint run --timeout 2m0s -v -E ${LINT_SETTINGS},gomnd && \
+	make check-comments;
 
 format:
 	gofmt -s -w -l .

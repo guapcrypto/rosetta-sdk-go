@@ -24,9 +24,9 @@ import (
 
 	"golang.org/x/sync/semaphore"
 
-	"github.com/coinbase/rosetta-sdk-go/asserter"
-	"github.com/coinbase/rosetta-sdk-go/client"
-	"github.com/coinbase/rosetta-sdk-go/types"
+	"github.com/guapcrypto/rosetta-sdk-go/asserter"
+	"github.com/guapcrypto/rosetta-sdk-go/client"
+	"github.com/guapcrypto/rosetta-sdk-go/types"
 )
 
 const (
@@ -73,7 +73,6 @@ type Fetcher struct {
 	maxRetries       uint64
 	retryElapsedTime time.Duration
 	insecureTLS      bool
-	forceRetry       bool
 
 	// connectionSemaphore is used to limit the
 	// number of concurrent requests we make.

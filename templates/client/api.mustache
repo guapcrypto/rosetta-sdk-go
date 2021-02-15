@@ -8,7 +8,7 @@ import (
   _nethttp "net/http"
   "fmt"
 
-  "github.com/coinbase/rosetta-sdk-go/types"
+  "github.com/guapcrypto/rosetta-sdk-go/types"
 {{#imports}}	"{{import}}"
 {{/imports}}
 )
@@ -109,8 +109,7 @@ func (a *{{{classname}}}Service) {{{nickname}}}(ctx _context.Context{{#hasParams
 		return nil, &v, fmt.Errorf("%+v", v)
 	case _nethttp.StatusBadGateway,
 		_nethttp.StatusServiceUnavailable,
-		_nethttp.StatusGatewayTimeout,
-		_nethttp.StatusRequestTimeout:
+		_nethttp.StatusGatewayTimeout:
 		return nil, nil, fmt.Errorf(
 			"%w: code: %d body: %s",
 			ErrRetriable,

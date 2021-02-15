@@ -18,8 +18,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/coinbase/rosetta-sdk-go/asserter"
-	"github.com/coinbase/rosetta-sdk-go/types"
+	"github.com/guapcrypto/rosetta-sdk-go/asserter"
+	"github.com/guapcrypto/rosetta-sdk-go/types"
 )
 
 // AccountBalance returns the validated response

@@ -19,7 +19,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/coinbase/rosetta-sdk-go/types"
+	"github.com/guapcrypto/rosetta-sdk-go/types"
 )
 
 func TestSearchTransactionsResponse(t *testing.T) {
@@ -70,17 +70,6 @@ func TestSearchTransactionsResponse(t *testing.T) {
 				NextOffset: types.Int64(-1),
 			},
 			err: ErrNextOffsetInvalid,
-		},
-		"valid count": {
-			response: &types.SearchTransactionsResponse{
-				TotalCount: 0,
-			},
-		},
-		"invalid count": {
-			response: &types.SearchTransactionsResponse{
-				TotalCount: -1,
-			},
-			err: ErrTotalCountInvalid,
 		},
 		"valid next + transaction": {
 			response: &types.SearchTransactionsResponse{

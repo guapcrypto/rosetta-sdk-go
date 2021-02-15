@@ -25,12 +25,12 @@ import (
 
 	"github.com/neilotoole/errgroup"
 
-	"github.com/coinbase/rosetta-sdk-go/asserter"
-	"github.com/coinbase/rosetta-sdk-go/parser"
-	"github.com/coinbase/rosetta-sdk-go/storage/database"
-	storageErrs "github.com/coinbase/rosetta-sdk-go/storage/errors"
-	"github.com/coinbase/rosetta-sdk-go/types"
-	"github.com/coinbase/rosetta-sdk-go/utils"
+	"github.com/guapcrypto/rosetta-sdk-go/asserter"
+	"github.com/guapcrypto/rosetta-sdk-go/parser"
+	"github.com/guapcrypto/rosetta-sdk-go/storage/database"
+	storageErrs "github.com/guapcrypto/rosetta-sdk-go/storage/errors"
+	"github.com/guapcrypto/rosetta-sdk-go/types"
+	"github.com/guapcrypto/rosetta-sdk-go/utils"
 )
 
 var _ BlockWorker = (*BalanceStorage)(nil)
@@ -184,21 +184,21 @@ func (b *BalanceStorage) Initialize(
 // AddingBlock is called by BlockStorage when adding a block to storage.
 func (b *BalanceStorage) AddingBlock(
 	ctx context.Context,
-	g *errgroup.Group,
 	block *types.Block,
 	transaction database.Transaction,
 ) (database.CommitWorker, error) {
-	if b.handler == nil {
-		return nil, storageErrs.ErrHelperHandlerMissing
-	}
-
 	changes, err := b.parser.BalanceChanges(ctx, block, false)
 	if err != nil {
-		return nil, fmt.Errorf("%w: unable to calculate balance changes", err)
+		return nil, fmt.Errorf("%w: unable to calculate balance changes\n", err)
 	}
 
 	// Keep track of how many new accounts have been seen so that the counter
 	// can be updated in a single op.
+	var newAccounts int
+	var newAccountsLock sync.Mutex
+
+	// Concurrent execution limited to runtime.NumCPU
+	g, gctx := errgroup.WithContextN(ctx, b.numCPU, b.numCPU)
 	for i := range changes {
 		// We need to set variable before calling goroutine
 		// to avoid getting an updated pointer as loop iteration
@@ -206,7 +206,7 @@ func (b *BalanceStorage) AddingBlock(
 		change := changes[i]
 		g.Go(func() error {
 			newAccount, err := b.UpdateBalance(
-				ctx,
+				gctx,
 				transaction,
 				change,
 				block.ParentBlockIdentifier,
@@ -219,8 +219,23 @@ func (b *BalanceStorage) AddingBlock(
 				return nil
 			}
 
-			return b.handler.AccountsSeen(ctx, transaction, 1)
+			newAccountsLock.Lock()
+			newAccounts++
+			newAccountsLock.Unlock()
+
+			return nil
 		})
+	}
+
+	if err := g.Wait(); err != nil {
+		return nil, err
+	}
+
+	// Update accounts seen
+	if newAccounts > 0 {
+		if err := b.handler.AccountsSeen(ctx, transaction, newAccounts); err != nil {
+			return nil, err
+		}
 	}
 
 	// Update accounts reconciled
@@ -244,17 +259,12 @@ func (b *BalanceStorage) AddingBlock(
 // RemovingBlock is called by BlockStorage when removing a block from storage.
 func (b *BalanceStorage) RemovingBlock(
 	ctx context.Context,
-	g *errgroup.Group,
 	block *types.Block,
 	transaction database.Transaction,
 ) (database.CommitWorker, error) {
-	if b.handler == nil {
-		return nil, storageErrs.ErrHelperHandlerMissing
-	}
-
 	changes, err := b.parser.BalanceChanges(ctx, block, true)
 	if err != nil {
-		return nil, fmt.Errorf("%w: unable to calculate balance changes", err)
+		return nil, fmt.Errorf("%w: unable to calculate balance changes\n", err)
 	}
 
 	// staleAccounts should be removed because the orphaned
@@ -263,6 +273,7 @@ func (b *BalanceStorage) RemovingBlock(
 	var staleAccountsMutex sync.Mutex
 
 	// Concurrent execution limited to runtime.NumCPU
+	g, gctx := errgroup.WithContextN(ctx, b.numCPU, b.numCPU)
 	for i := range changes {
 		// We need to set variable before calling goroutine
 		// to avoid getting an updated pointer as loop iteration
@@ -270,7 +281,7 @@ func (b *BalanceStorage) RemovingBlock(
 		change := changes[i]
 		g.Go(func() error {
 			shouldRemove, err := b.OrphanBalance(
-				ctx,
+				gctx,
 				transaction,
 				change,
 			)
@@ -291,6 +302,10 @@ func (b *BalanceStorage) RemovingBlock(
 
 			return nil
 		})
+	}
+
+	if err := g.Wait(); err != nil {
+		return nil, err
 	}
 
 	return func(ctx context.Context) error {
@@ -314,6 +329,11 @@ func (b *BalanceStorage) RemovingBlock(
 	}, nil
 }
 
+type accountEntry struct {
+	Account  *types.AccountIdentifier `json:"account"`
+	Currency *types.Currency          `json:"currency"`
+}
+
 // SetBalance allows a client to set the balance of an account in a database
 // transaction (removing all historical states). This is particularly useful
 // for bootstrapping balances.
@@ -324,10 +344,6 @@ func (b *BalanceStorage) SetBalance(
 	amount *types.Amount,
 	block *types.BlockIdentifier,
 ) error {
-	if b.handler == nil {
-		return storageErrs.ErrHelperHandlerMissing
-	}
-
 	// Remove all account-related items
 	if err := b.deleteAccountRecords(
 		ctx,
@@ -344,7 +360,7 @@ func (b *BalanceStorage) SetBalance(
 	}
 
 	// Serialize account entry
-	serialAcc, err := b.db.Encoder().EncodeAccountCurrency(&types.AccountCurrency{
+	serialAcc, err := b.db.Encoder().Encode(accountNamespace, accountEntry{
 		Account:  account,
 		Currency: amount.Currency,
 	})
@@ -436,10 +452,6 @@ func (b *BalanceStorage) Reconciled(
 // get an idea of the reconciliation coverage without
 // doing an expensive DB scan across all accounts.
 func (b *BalanceStorage) EstimatedReconciliationCoverage(ctx context.Context) (float64, error) {
-	if b.helper == nil {
-		return -1, storageErrs.ErrHelperHandlerMissing
-	}
-
 	dbTx := b.db.ReadTransaction(ctx)
 	defer dbTx.Discard(ctx)
 
@@ -468,29 +480,26 @@ func (b *BalanceStorage) ReconciliationCoverage(
 ) (float64, error) {
 	seen := 0
 	validCoverage := 0
-	err := b.getAllAccountEntries(
-		ctx,
-		func(txn database.Transaction, entry *types.AccountCurrency) error {
-			seen++
+	err := b.getAllAccountEntries(ctx, func(txn database.Transaction, entry accountEntry) error {
+		seen++
 
-			// Fetch last reconciliation index in same database.Transaction
-			key := GetAccountKey(reconciliationNamepace, entry.Account, entry.Currency)
-			exists, lastReconciled, err := BigIntGet(ctx, key, txn)
-			if err != nil {
-				return err
-			}
+		// Fetch last reconciliation index in same database.Transaction
+		key := GetAccountKey(reconciliationNamepace, entry.Account, entry.Currency)
+		exists, lastReconciled, err := BigIntGet(ctx, key, txn)
+		if err != nil {
+			return err
+		}
 
-			if !exists {
-				return nil
-			}
-
-			if lastReconciled.Int64() >= minimumIndex {
-				validCoverage++
-			}
-
+		if !exists {
 			return nil
-		},
-	)
+		}
+
+		if lastReconciled.Int64() >= minimumIndex {
+			validCoverage++
+		}
+
+		return nil
+	})
 	if err != nil {
 		return -1, fmt.Errorf("%w: unable to get all account entries", err)
 	}
@@ -514,10 +523,6 @@ func (b *BalanceStorage) existingValue(
 	parentBlock *types.BlockIdentifier,
 	existingValue string,
 ) (string, error) {
-	if b.helper == nil {
-		return "", storageErrs.ErrHelperHandlerMissing
-	}
-
 	if exists {
 		return existingValue, nil
 	}
@@ -567,10 +572,6 @@ func (b *BalanceStorage) applyExemptions(
 	change *parser.BalanceChange,
 	newVal string,
 ) (string, error) {
-	if b.helper == nil {
-		return "", storageErrs.ErrHelperHandlerMissing
-	}
-
 	// Find exemptions that are applicable to the *parser.BalanceChange
 	exemptions := b.parser.FindExemptions(change.Account, change.Currency)
 	if len(exemptions) == 0 {
@@ -634,10 +635,6 @@ func (b *BalanceStorage) deleteAccountRecords(
 	account *types.AccountIdentifier,
 	currency *types.Currency,
 ) error {
-	if b.handler == nil {
-		return storageErrs.ErrHelperHandlerMissing
-	}
-
 	// Remove historical balance records
 	if err := b.removeHistoricalBalances(
 		ctx,
@@ -847,14 +844,7 @@ func (b *BalanceStorage) UpdateBalance(
 	}
 
 	if bigNewVal.Sign() == -1 {
-		return false, fmt.Errorf(
-			"%w %s:%+v for %+v at %+v",
-			storageErrs.ErrNegativeBalance,
-			newVal,
-			change.Currency,
-			change.Account,
-			change.Block,
-		)
+		return true, nil
 	}
 
 	// Add account entry if doesn't exist
@@ -862,7 +852,7 @@ func (b *BalanceStorage) UpdateBalance(
 	if !exists {
 		newAccount = true
 		key := GetAccountKey(accountNamespace, change.Account, change.Currency)
-		serialAcc, err := b.db.Encoder().EncodeAccountCurrency(&types.AccountCurrency{
+		serialAcc, err := b.db.Encoder().Encode(accountNamespace, accountEntry{
 			Account:  change.Account,
 			Currency: change.Currency,
 		})
@@ -1140,7 +1130,7 @@ func (b *BalanceStorage) BootstrapBalances(
 
 func (b *BalanceStorage) getAllAccountEntries(
 	ctx context.Context,
-	handler func(database.Transaction, *types.AccountCurrency) error,
+	handler func(database.Transaction, accountEntry) error,
 ) error {
 	txn := b.db.ReadTransaction(ctx)
 	defer txn.Discard(ctx)
@@ -1149,9 +1139,9 @@ func (b *BalanceStorage) getAllAccountEntries(
 		[]byte(accountNamespace),
 		[]byte(accountNamespace),
 		func(k []byte, v []byte) error {
-			var accCurrency types.AccountCurrency
+			var accEntry accountEntry
 			// We should not reclaim memory during a scan!!
-			err := b.db.Encoder().DecodeAccountCurrency(v, &accCurrency, false)
+			err := b.db.Encoder().Decode(accountNamespace, v, &accEntry, false)
 			if err != nil {
 				return fmt.Errorf(
 					"%w: unable to parse balance entry for %s",
@@ -1160,7 +1150,7 @@ func (b *BalanceStorage) getAllAccountEntries(
 				)
 			}
 
-			return handler(txn, &accCurrency)
+			return handler(txn, accEntry)
 		},
 		false,
 		false,
@@ -1180,12 +1170,20 @@ func (b *BalanceStorage) GetAllAccountCurrency(
 ) ([]*types.AccountCurrency, error) {
 	log.Println("Loading previously seen accounts (this could take a while)...")
 
-	accounts := []*types.AccountCurrency{}
-	if err := b.getAllAccountEntries(ctx, func(_ database.Transaction, account *types.AccountCurrency) error {
-		accounts = append(accounts, account)
+	accountEntries := []*accountEntry{}
+	if err := b.getAllAccountEntries(ctx, func(_ database.Transaction, entry accountEntry) error {
+		accountEntries = append(accountEntries, &entry)
 		return nil
 	}); err != nil {
 		return nil, fmt.Errorf("%w: unable to get all balance entries", err)
+	}
+
+	accounts := make([]*types.AccountCurrency, len(accountEntries))
+	for i, account := range accountEntries {
+		accounts[i] = &types.AccountCurrency{
+			Account:  account.Account,
+			Currency: account.Currency,
+		}
 	}
 
 	return accounts, nil

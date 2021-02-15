@@ -18,12 +18,12 @@ import (
 	"context"
 	"time"
 
-	"github.com/coinbase/rosetta-sdk-go/constructor/job"
-	"github.com/coinbase/rosetta-sdk-go/constructor/worker"
-	"github.com/coinbase/rosetta-sdk-go/keys"
-	"github.com/coinbase/rosetta-sdk-go/parser"
-	"github.com/coinbase/rosetta-sdk-go/storage/database"
-	"github.com/coinbase/rosetta-sdk-go/types"
+	"github.com/guapcrypto/rosetta-sdk-go/constructor/job"
+	"github.com/guapcrypto/rosetta-sdk-go/constructor/worker"
+	"github.com/guapcrypto/rosetta-sdk-go/keys"
+	"github.com/guapcrypto/rosetta-sdk-go/parser"
+	"github.com/guapcrypto/rosetta-sdk-go/storage/database"
+	"github.com/guapcrypto/rosetta-sdk-go/types"
 )
 
 const (
@@ -180,23 +180,6 @@ type Helper interface {
 		context.Context,
 		[]*types.SigningPayload,
 	) ([]*types.Signature, error)
-
-	// SetBlob transactionally persists
-	// a key and value.
-	SetBlob(
-		ctx context.Context,
-		dbTx database.Transaction,
-		key string,
-		value []byte,
-	) error
-
-	// GetBlob transactionally retrieves
-	// a key and value.
-	GetBlob(
-		ctx context.Context,
-		dbTx database.Transaction,
-		key string,
-	) (bool, []byte, error)
 }
 
 // Handler is an interface called by the coordinator whenever

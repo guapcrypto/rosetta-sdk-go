@@ -24,8 +24,8 @@ import (
 
 	"github.com/cenkalti/backoff"
 
-	"github.com/coinbase/rosetta-sdk-go/client"
-	"github.com/coinbase/rosetta-sdk-go/types"
+	"github.com/guapcrypto/rosetta-sdk-go/client"
+	"github.com/guapcrypto/rosetta-sdk-go/types"
 )
 
 const (

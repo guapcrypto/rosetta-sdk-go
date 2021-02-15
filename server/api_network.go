@@ -1,4 +1,4 @@
-// Copyright 2021 Coinbase, Inc.
+// Copyright 2020 Coinbase, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,8 +21,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/coinbase/rosetta-sdk-go/asserter"
-	"github.com/coinbase/rosetta-sdk-go/types"
+	"github.com/guapcrypto/rosetta-sdk-go/asserter"
+	"github.com/guapcrypto/rosetta-sdk-go/types"
 )
 
 // A NetworkAPIController binds http requests to an api service and writes the service results to

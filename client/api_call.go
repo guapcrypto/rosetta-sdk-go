@@ -1,4 +1,4 @@
-// Copyright 2021 Coinbase, Inc.
+// Copyright 2020 Coinbase, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@ import (
 	_ioutil "io/ioutil"
 	_nethttp "net/http"
 
-	"github.com/coinbase/rosetta-sdk-go/types"
+	"github.com/guapcrypto/rosetta-sdk-go/types"
 )
 
 // Linger please
@@ -111,8 +111,7 @@ func (a *CallAPIService) Call(
 		return nil, &v, fmt.Errorf("%+v", v)
 	case _nethttp.StatusBadGateway,
 		_nethttp.StatusServiceUnavailable,
-		_nethttp.StatusGatewayTimeout,
-		_nethttp.StatusRequestTimeout:
+		_nethttp.StatusGatewayTimeout:
 		return nil, nil, fmt.Errorf(
 			"%w: code: %d body: %s",
 			ErrRetriable,

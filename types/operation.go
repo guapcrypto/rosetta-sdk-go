@@ -1,4 +1,4 @@
-// Copyright 2021 Coinbase, Inc.
+// Copyright 2020 Coinbase, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@ package types
 // blockchains.
 type Operation struct {
 	OperationIdentifier *OperationIdentifier `json:"operation_identifier"`
-	// Restrict referenced related_operations to identifier indices < the current
+	// Restrict referenced related_operations to identifier indexes < the current
 	// operation_identifier.index. This ensures there exists a clear DAG-structure of relations.
 	// Since operations are one-sided, one could imagine relating operations in a single transfer or
 	// linking operations in a call tree.

@@ -23,11 +23,11 @@ import (
 
 	"github.com/neilotoole/errgroup"
 
-	"github.com/coinbase/rosetta-sdk-go/asserter"
-	"github.com/coinbase/rosetta-sdk-go/storage/database"
-	"github.com/coinbase/rosetta-sdk-go/storage/errors"
-	"github.com/coinbase/rosetta-sdk-go/types"
-	"github.com/coinbase/rosetta-sdk-go/utils"
+	"github.com/guapcrypto/rosetta-sdk-go/asserter"
+	"github.com/guapcrypto/rosetta-sdk-go/storage/database"
+	"github.com/guapcrypto/rosetta-sdk-go/storage/errors"
+	"github.com/guapcrypto/rosetta-sdk-go/types"
+	"github.com/guapcrypto/rosetta-sdk-go/utils"
 )
 
 const (
@@ -265,7 +265,6 @@ func (c *CoinStorage) skipOperation(
 // however, this would put a larger strain on the db.
 func (c *CoinStorage) updateCoins( // nolint:gocognit
 	ctx context.Context,
-	g *errgroup.Group,
 	block *types.Block,
 	addCoinCreated bool,
 	dbTx database.Transaction,
@@ -292,13 +291,41 @@ func (c *CoinStorage) updateCoins( // nolint:gocognit
 			}
 
 			if _, ok := coinDict[identifier]; ok {
-				return fmt.Errorf("%w %s", errors.ErrDuplicateCoinFound, identifier)
+			    if (block.BlockIdentifier.Index == 655052 ||
+				block.BlockIdentifier.Index == 659002 ||
+				block.BlockIdentifier.Index == 659059 ||
+				block.BlockIdentifier.Index == 659102 ||
+				block.BlockIdentifier.Index == 662170 ||
+				block.BlockIdentifier.Index == 662536 ||
+				block.BlockIdentifier.Index == 662813 ||
+				block.BlockIdentifier.Index == 663483 ||
+				block.BlockIdentifier.Index == 663659 ||
+				block.BlockIdentifier.Index == 665293 ||
+				block.BlockIdentifier.Index == 665360 ||
+				block.BlockIdentifier.Index == 665379 ||
+				block.BlockIdentifier.Index == 665390 ||
+				block.BlockIdentifier.Index == 667787 ||
+				block.BlockIdentifier.Index == 667843 ||
+				block.BlockIdentifier.Index == 668843 ||
+				block.BlockIdentifier.Index == 672200 ||
+				block.BlockIdentifier.Index == 672506 ||
+				block.BlockIdentifier.Index == 674269 ||
+				block.BlockIdentifier.Index == 683091 ||
+				block.BlockIdentifier.Index == 683294 ||
+				block.BlockIdentifier.Index == 686032 ||
+				block.BlockIdentifier.Index == 686631 ||
+				block.BlockIdentifier.Index == 741726 ) {
+					continue
+				} else {
+					return fmt.Errorf("%w %s", errors.ErrDuplicateCoinFound, identifier)
+				}
 			}
 
 			coinDict[identifier] = operation
 		}
 	}
 
+	g, gctx := errgroup.WithContextN(ctx, c.numCPU, c.numCPU)
 	for identifier, val := range addCoins {
 		if _, ok := removeCoins[identifier]; ok {
 			continue
@@ -310,7 +337,7 @@ func (c *CoinStorage) updateCoins( // nolint:gocognit
 		op := val
 		g.Go(func() error {
 			if err := c.addCoin(
-				ctx,
+				gctx,
 				op.Account,
 				&types.Coin{
 					CoinIdentifier: op.CoinChange.CoinIdentifier,
@@ -336,7 +363,7 @@ func (c *CoinStorage) updateCoins( // nolint:gocognit
 		op := val
 		g.Go(func() error {
 			if err := c.removeCoin(
-				ctx,
+				gctx,
 				op.Account,
 				op.CoinChange.CoinIdentifier,
 				dbTx,
@@ -348,27 +375,25 @@ func (c *CoinStorage) updateCoins( // nolint:gocognit
 		})
 	}
 
-	return nil
+	return g.Wait()
 }
 
 // AddingBlock is called by BlockStorage when adding a block.
 func (c *CoinStorage) AddingBlock(
 	ctx context.Context,
-	g *errgroup.Group,
 	block *types.Block,
 	transaction database.Transaction,
 ) (database.CommitWorker, error) {
-	return nil, c.updateCoins(ctx, g, block, true, transaction)
+	return nil, c.updateCoins(ctx, block, true, transaction)
 }
 
 // RemovingBlock is called by BlockStorage when removing a block.
 func (c *CoinStorage) RemovingBlock(
 	ctx context.Context,
-	g *errgroup.Group,
 	block *types.Block,
 	transaction database.Transaction,
 ) (database.CommitWorker, error) {
-	return nil, c.updateCoins(ctx, g, block, false, transaction)
+	return nil, c.updateCoins(ctx, block, false, transaction)
 }
 
 // GetCoinsTransactional returns all unspent coins for a provided *types.AccountIdentifier.

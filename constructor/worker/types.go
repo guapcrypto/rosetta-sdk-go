@@ -17,9 +17,9 @@ package worker
 import (
 	"context"
 
-	"github.com/coinbase/rosetta-sdk-go/keys"
-	"github.com/coinbase/rosetta-sdk-go/storage/database"
-	"github.com/coinbase/rosetta-sdk-go/types"
+	"github.com/guapcrypto/rosetta-sdk-go/keys"
+	"github.com/guapcrypto/rosetta-sdk-go/storage/database"
+	"github.com/guapcrypto/rosetta-sdk-go/types"
 )
 
 // Helper is used by the worker to process Jobs.
@@ -70,23 +70,6 @@ type Helper interface {
 		*types.PublicKey,
 		map[string]interface{},
 	) (*types.AccountIdentifier, map[string]interface{}, error)
-
-	// SetBlob transactionally persists
-	// a key and value.
-	SetBlob(
-		ctx context.Context,
-		dbTx database.Transaction,
-		key string,
-		value []byte,
-	) error
-
-	// GetBlob transactionally retrieves
-	// a key and value.
-	GetBlob(
-		ctx context.Context,
-		dbTx database.Transaction,
-		key string,
-	) (bool, []byte, error)
 }
 
 // Worker processes jobs.

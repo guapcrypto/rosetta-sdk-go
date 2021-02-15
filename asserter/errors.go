@@ -17,7 +17,7 @@ package asserter
 import (
 	"errors"
 
-	utils "github.com/coinbase/rosetta-sdk-go/errors"
+	utils "github.com/guapcrypto/rosetta-sdk-go/errors"
 )
 
 var (
@@ -91,7 +91,6 @@ var (
 	ErrBlockIndexPrecedesParentBlockIndex = errors.New(
 		"BlockIdentifier.Index <= ParentBlockIdentifier.Index",
 	)
-	ErrInvalidDirection = errors.New("invalid direction (must be 'forward' or 'backward')")
 
 	BlockErrs = []error{
 		ErrAmountValueMissing,
@@ -126,7 +125,6 @@ var (
 		ErrBlockIsNil,
 		ErrBlockHashEqualsParentBlockHash,
 		ErrBlockIndexPrecedesParentBlockIndex,
-		ErrInvalidDirection,
 	}
 )
 
@@ -284,15 +282,6 @@ var (
 	ErrTimestampStartIndexInvalid = errors.New(
 		"TimestampStartIndex is invalid",
 	)
-	ErrSyncStatusCurrentIndexNegative = errors.New(
-		"SyncStatus.CurrentIndex is negative",
-	)
-	ErrSyncStatusTargetIndexNegative = errors.New(
-		"SyncStatus.TargetIndex is negative",
-	)
-	ErrSyncStatusStageInvalid = errors.New(
-		"SyncStatus.Stage is invalid",
-	)
 
 	NetworkErrs = []error{
 		ErrSubNetworkIdentifierInvalid,
@@ -318,9 +307,6 @@ var (
 		ErrBalanceExemptionSubAccountAddressEmpty,
 		ErrBalanceExemptionNoHistoricalLookup,
 		ErrTimestampStartIndexInvalid,
-		ErrSyncStatusCurrentIndexNegative,
-		ErrSyncStatusTargetIndexNegative,
-		ErrSyncStatusStageInvalid,
 	}
 )
 
@@ -445,11 +431,9 @@ var (
 // Search Errors
 var (
 	ErrNextOffsetInvalid = errors.New("next offset invalid")
-	ErrTotalCountInvalid = errors.New("total count invalid")
 
 	SearchErrs = []error{
 		ErrNextOffsetInvalid,
-		ErrTotalCountInvalid,
 	}
 )
 

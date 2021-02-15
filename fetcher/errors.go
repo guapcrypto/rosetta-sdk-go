@@ -20,8 +20,8 @@ import (
 	"fmt"
 	"log"
 
-	utils "github.com/coinbase/rosetta-sdk-go/errors"
-	"github.com/coinbase/rosetta-sdk-go/types"
+	utils "github.com/guapcrypto/rosetta-sdk-go/errors"
+	"github.com/guapcrypto/rosetta-sdk-go/types"
 )
 
 // Error wraps the two possible types of error responses returned
@@ -57,7 +57,7 @@ func (f *Fetcher) RequestFailedError(
 	return &Error{
 		Err:       fmt.Errorf("%w: %s %s", ErrRequestFailed, message, err.Error()),
 		ClientErr: rosettaErr,
-		Retry: ((rosettaErr != nil && rosettaErr.Retriable) || transientError(err) || f.forceRetry) &&
+		Retry: ((rosettaErr != nil && rosettaErr.Retriable) || transientError(err)) &&
 			!errors.Is(err, context.Canceled),
 	}
 }

@@ -17,8 +17,8 @@ package fetcher
 import (
 	"time"
 
-	"github.com/coinbase/rosetta-sdk-go/asserter"
-	"github.com/coinbase/rosetta-sdk-go/client"
+	"github.com/guapcrypto/rosetta-sdk-go/asserter"
+	"github.com/guapcrypto/rosetta-sdk-go/client"
 )
 
 // Option is used to overwrite default values in
@@ -82,20 +82,5 @@ func WithTimeout(timeout time.Duration) Option {
 func WithMaxConnections(connections int) Option {
 	return func(f *Fetcher) {
 		f.maxConnections = connections
-	}
-}
-
-// WithForceRetry overrides the default
-// retry handling logic and treats every error
-// as retriable.
-//
-// This is particularly useful when accessing a Rosetta
-// implementation via a load balancer where there may be
-// periods of inconsistency (i.e. we get a network status
-// from one implementation and query another that has not
-// yet synced the most recent block).
-func WithForceRetry() Option {
-	return func(f *Fetcher) {
-		f.forceRetry = true
 	}
 }

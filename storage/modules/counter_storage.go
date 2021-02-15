@@ -19,11 +19,9 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/neilotoole/errgroup"
-
-	"github.com/coinbase/rosetta-sdk-go/storage/database"
-	"github.com/coinbase/rosetta-sdk-go/types"
-	"github.com/coinbase/rosetta-sdk-go/utils"
+	"github.com/guapcrypto/rosetta-sdk-go/storage/database"
+	"github.com/guapcrypto/rosetta-sdk-go/types"
+	"github.com/guapcrypto/rosetta-sdk-go/utils"
 )
 
 const (
@@ -202,7 +200,6 @@ func (c *CounterStorage) GetTransactional(
 // AddingBlock is called by BlockStorage when adding a block.
 func (c *CounterStorage) AddingBlock(
 	ctx context.Context,
-	g *errgroup.Group,
 	block *types.Block,
 	transaction database.Transaction,
 ) (database.CommitWorker, error) {
@@ -246,7 +243,6 @@ func (c *CounterStorage) AddingBlock(
 // RemovingBlock is called by BlockStorage when removing a block.
 func (c *CounterStorage) RemovingBlock(
 	ctx context.Context,
-	g *errgroup.Group,
 	block *types.Block,
 	transaction database.Transaction,
 ) (database.CommitWorker, error) {

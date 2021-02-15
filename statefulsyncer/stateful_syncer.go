@@ -19,17 +19,14 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"runtime"
 	"time"
 
-	"golang.org/x/sync/semaphore"
-
-	"github.com/coinbase/rosetta-sdk-go/fetcher"
-	storageErrs "github.com/coinbase/rosetta-sdk-go/storage/errors"
-	"github.com/coinbase/rosetta-sdk-go/storage/modules"
-	"github.com/coinbase/rosetta-sdk-go/syncer"
-	"github.com/coinbase/rosetta-sdk-go/types"
-	"github.com/coinbase/rosetta-sdk-go/utils"
+	"github.com/guapcrypto/rosetta-sdk-go/fetcher"
+	storageErrs "github.com/guapcrypto/rosetta-sdk-go/storage/errors"
+	"github.com/guapcrypto/rosetta-sdk-go/storage/modules"
+	"github.com/guapcrypto/rosetta-sdk-go/syncer"
+	"github.com/guapcrypto/rosetta-sdk-go/types"
+	"github.com/guapcrypto/rosetta-sdk-go/utils"
 )
 
 var _ syncer.Handler = (*StatefulSyncer)(nil)
@@ -43,9 +40,6 @@ const (
 	// pruneBuffer is the cushion we apply to pastBlockLimit
 	// when pruning.
 	pruneBuffer = 2
-
-	// semaphoreWeight is the weight of each semaphore request.
-	semaphoreWeight = int64(1)
 )
 
 // StatefulSyncer is an abstraction layer over
@@ -67,11 +61,6 @@ type StatefulSyncer struct {
 	pastBlockLimit   int
 	adjustmentWindow int64
 	pruneSleepTime   time.Duration
-
-	// SeenSemaphore limits how many executions of
-	// BlockSeen occur concurrently.
-	seenSemaphore     *semaphore.Weighted
-	seenSemaphoreSize int64
 }
 
 // Logger is used by the statefulsyncer to
@@ -114,23 +103,17 @@ func New(
 		logger:         logger,
 
 		// Optional args
-		cacheSize:         syncer.DefaultCacheSize,
-		maxConcurrency:    syncer.DefaultMaxConcurrency,
-		pastBlockLimit:    syncer.DefaultPastBlockLimit,
-		adjustmentWindow:  syncer.DefaultAdjustmentWindow,
-		pruneSleepTime:    DefaultPruneSleepTime,
-		seenSemaphoreSize: int64(runtime.NumCPU()),
+		cacheSize:        syncer.DefaultCacheSize,
+		maxConcurrency:   syncer.DefaultMaxConcurrency,
+		pastBlockLimit:   syncer.DefaultPastBlockLimit,
+		adjustmentWindow: syncer.DefaultAdjustmentWindow,
+		pruneSleepTime:   DefaultPruneSleepTime,
 	}
 
 	// Override defaults with any provided options
 	for _, opt := range options {
 		opt(s)
 	}
-
-	// We set this after options because the caller
-	// has the ability to set the max concurrency
-	// of seen invocations.
-	s.seenSemaphore = semaphore.NewWeighted(s.seenSemaphoreSize)
 
 	return s
 }
@@ -234,25 +217,6 @@ func (s *StatefulSyncer) Prune(ctx context.Context, helper PruneHelper) error {
 	}
 
 	return ctx.Err()
-}
-
-// BlockSeen is called by the syncer when a block is seen.
-func (s *StatefulSyncer) BlockSeen(ctx context.Context, block *types.Block) error {
-	if err := s.seenSemaphore.Acquire(ctx, semaphoreWeight); err != nil {
-		return err
-	}
-	defer s.seenSemaphore.Release(semaphoreWeight)
-
-	if err := s.blockStorage.SeeBlock(ctx, block); err != nil {
-		return fmt.Errorf(
-			"%w: unable to pre-store block %s:%d",
-			err,
-			block.BlockIdentifier.Hash,
-			block.BlockIdentifier.Index,
-		)
-	}
-
-	return nil
 }
 
 // BlockAdded is called by the syncer when a block is added.

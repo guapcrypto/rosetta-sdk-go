@@ -17,7 +17,7 @@ package asserter
 import (
 	"fmt"
 
-	"github.com/coinbase/rosetta-sdk-go/types"
+	"github.com/guapcrypto/rosetta-sdk-go/types"
 )
 
 // SubNetworkIdentifier asserts a types.SubNetworkIdentifer is valid (if not nil).
@@ -78,27 +78,6 @@ func Version(version *types.Version) error {
 	return nil
 }
 
-// SyncStatus ensures any types.SyncStatus is valid.
-func SyncStatus(status *types.SyncStatus) error {
-	if status == nil {
-		return nil
-	}
-
-	if status.CurrentIndex != nil && *status.CurrentIndex < 0 {
-		return ErrSyncStatusCurrentIndexNegative
-	}
-
-	if status.TargetIndex != nil && *status.TargetIndex < 0 {
-		return ErrSyncStatusTargetIndexNegative
-	}
-
-	if status.Stage != nil && len(*status.Stage) == 0 {
-		return ErrSyncStatusStageInvalid
-	}
-
-	return nil
-}
-
 // NetworkStatusResponse ensures any types.NetworkStatusResponse
 // is valid.
 func NetworkStatusResponse(response *types.NetworkStatusResponse) error {
@@ -122,10 +101,6 @@ func NetworkStatusResponse(response *types.NetworkStatusResponse) error {
 		if err := Peer(peer); err != nil {
 			return err
 		}
-	}
-
-	if err := SyncStatus(response.SyncStatus); err != nil {
-		return err
 	}
 
 	return nil

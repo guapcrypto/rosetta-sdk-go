@@ -19,10 +19,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/coinbase/rosetta-sdk-go/parser"
-	"github.com/coinbase/rosetta-sdk-go/storage/database"
-	"github.com/coinbase/rosetta-sdk-go/types"
-	"github.com/coinbase/rosetta-sdk-go/utils"
+	"github.com/guapcrypto/rosetta-sdk-go/parser"
+	"github.com/guapcrypto/rosetta-sdk-go/storage/database"
+	"github.com/guapcrypto/rosetta-sdk-go/types"
+	"github.com/guapcrypto/rosetta-sdk-go/utils"
 )
 
 const (
@@ -56,17 +56,6 @@ const (
 	// to process (so the index we are querying at may be
 	// ahead of the nodes tip).
 	TipFailure = "TIP_FAILURE"
-
-	// AccountMissing is returned when looking up computed
-	// balance fails because the account does not exist in
-	// balance storage.
-	// This can happen when interesting accounts
-	// are specified. We try to reconcile balances for
-	// each of these accounts at each block height.
-	// But, until we encounter a block with an interesting account
-	// in it, there is no entry for it in balance storage.
-	// So, we can not reconcile.
-	AccountMissing = "ACCOUNT_MISSING"
 )
 
 const (
@@ -179,19 +168,6 @@ type Helper interface {
 		currency *types.Currency,
 		index int64,
 	) error
-
-	// ForceInactiveReconciliation is invoked by the
-	// inactive reconciler when the next account to
-	// reconcile has been checked within the configured
-	// inactive reconciliation frequency. This allows
-	// the helper to dynamically force inactive reconciliation
-	// when desired (i.e. when at tip).
-	ForceInactiveReconciliation(
-		ctx context.Context,
-		account *types.AccountIdentifier,
-		currency *types.Currency,
-		lastCheck *types.BlockIdentifier,
-	) bool
 }
 
 // Handler is called by Reconciler after a reconciliation

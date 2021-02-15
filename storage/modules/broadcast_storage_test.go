@@ -20,13 +20,12 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/neilotoole/errgroup"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
-	mocks "github.com/coinbase/rosetta-sdk-go/mocks/storage/modules"
-	"github.com/coinbase/rosetta-sdk-go/types"
-	"github.com/coinbase/rosetta-sdk-go/utils"
+	mocks "github.com/guapcrypto/rosetta-sdk-go/mocks/storage/modules"
+	"github.com/guapcrypto/rosetta-sdk-go/types"
+	"github.com/guapcrypto/rosetta-sdk-go/utils"
 )
 
 const (
@@ -155,10 +154,8 @@ func TestBroadcastStorageBroadcastSuccess(t *testing.T) {
 		block := blocks[0]
 
 		txn := storage.db.Transaction(ctx)
-		g, gctx := errgroup.WithContext(ctx)
-		commitWorker, err := storage.AddingBlock(gctx, g, block, txn)
+		commitWorker, err := storage.AddingBlock(ctx, block, txn)
 		assert.NoError(t, err)
-		assert.NoError(t, g.Wait())
 		err = txn.Commit(ctx)
 		assert.NoError(t, err)
 
@@ -209,10 +206,9 @@ func TestBroadcastStorageBroadcastSuccess(t *testing.T) {
 		block := blocks[1]
 
 		txn := storage.db.Transaction(ctx)
-		g, gctx := errgroup.WithContext(ctx)
 		mockHelper.On(
 			"FindTransaction",
-			gctx,
+			ctx,
 			&types.TransactionIdentifier{Hash: "tx 1"},
 			txn,
 		).Return(
@@ -220,9 +216,8 @@ func TestBroadcastStorageBroadcastSuccess(t *testing.T) {
 			nil,
 			nil,
 		).Once()
-		commitWorker, err := storage.AddingBlock(gctx, g, block, txn)
+		commitWorker, err := storage.AddingBlock(ctx, block, txn)
 		assert.NoError(t, err)
-		assert.NoError(t, g.Wait())
 		err = txn.Commit(ctx)
 		assert.NoError(t, err)
 
@@ -337,10 +332,9 @@ func TestBroadcastStorageBroadcastSuccess(t *testing.T) {
 		mockHelper.On("AtTip", ctx, mock.Anything).Return(true, nil)
 
 		txn := storage.db.Transaction(ctx)
-		g, gctx := errgroup.WithContext(ctx)
 		mockHelper.On(
 			"FindTransaction",
-			gctx,
+			ctx,
 			&types.TransactionIdentifier{Hash: "tx 1"},
 			txn,
 		).Return(
@@ -350,7 +344,7 @@ func TestBroadcastStorageBroadcastSuccess(t *testing.T) {
 		).Once()
 		mockHelper.On(
 			"FindTransaction",
-			gctx,
+			ctx,
 			&types.TransactionIdentifier{Hash: "tx 2"},
 			txn,
 		).Return(
@@ -360,7 +354,7 @@ func TestBroadcastStorageBroadcastSuccess(t *testing.T) {
 		).Once()
 		mockHandler.On(
 			"TransactionStale",
-			gctx,
+			ctx,
 			txn,
 			"broadcast 1",
 			&types.TransactionIdentifier{Hash: "tx 1"},
@@ -376,9 +370,8 @@ func TestBroadcastStorageBroadcastSuccess(t *testing.T) {
 			&types.TransactionIdentifier{Hash: "tx 1"},
 			nil,
 		).Once()
-		commitWorker, err := storage.AddingBlock(gctx, g, block, txn)
+		commitWorker, err := storage.AddingBlock(ctx, block, txn)
 		assert.NoError(t, err)
-		assert.NoError(t, g.Wait())
 
 		accounts, err := storage.LockedAccounts(ctx, txn)
 		assert.NoError(t, err)
@@ -442,10 +435,9 @@ func TestBroadcastStorageBroadcastSuccess(t *testing.T) {
 		block.Transactions = []*types.Transaction{tx1}
 
 		txn := storage.db.Transaction(ctx)
-		g, gctx := errgroup.WithContext(ctx)
 		mockHelper.On(
 			"FindTransaction",
-			gctx,
+			ctx,
 			&types.TransactionIdentifier{Hash: "tx 1"},
 			txn,
 		).Return(
@@ -455,7 +447,7 @@ func TestBroadcastStorageBroadcastSuccess(t *testing.T) {
 		).Once()
 		mockHelper.On(
 			"FindTransaction",
-			gctx,
+			ctx,
 			&types.TransactionIdentifier{Hash: "tx 2"},
 			txn,
 		).Return(
@@ -465,7 +457,7 @@ func TestBroadcastStorageBroadcastSuccess(t *testing.T) {
 		).Once()
 		mockHandler.On(
 			"TransactionStale",
-			gctx,
+			ctx,
 			txn,
 			"broadcast 2",
 			&types.TransactionIdentifier{Hash: "tx 2"},
@@ -481,9 +473,8 @@ func TestBroadcastStorageBroadcastSuccess(t *testing.T) {
 			&types.TransactionIdentifier{Hash: "tx 2"},
 			nil,
 		).Once()
-		commitWorker, err := storage.AddingBlock(gctx, g, block, txn)
+		commitWorker, err := storage.AddingBlock(ctx, block, txn)
 		assert.NoError(t, err)
-		assert.NoError(t, g.Wait())
 
 		accounts, err := storage.LockedAccounts(ctx, txn)
 		assert.NoError(t, err)
@@ -539,10 +530,9 @@ func TestBroadcastStorageBroadcastSuccess(t *testing.T) {
 		block.Transactions = []*types.Transaction{tx2}
 
 		txn := storage.db.Transaction(ctx)
-		g, gctx := errgroup.WithContext(ctx)
 		mockHelper.On(
 			"FindTransaction",
-			gctx,
+			ctx,
 			&types.TransactionIdentifier{Hash: "tx 1"},
 			txn,
 		).Return(
@@ -552,7 +542,7 @@ func TestBroadcastStorageBroadcastSuccess(t *testing.T) {
 		).Once()
 		mockHelper.On(
 			"FindTransaction",
-			gctx,
+			ctx,
 			&types.TransactionIdentifier{Hash: "tx 2"},
 			txn,
 		).Return(
@@ -562,7 +552,7 @@ func TestBroadcastStorageBroadcastSuccess(t *testing.T) {
 		).Once()
 		mockHandler.On(
 			"TransactionConfirmed",
-			gctx,
+			ctx,
 			txn,
 			"broadcast 1",
 			blocks[3].BlockIdentifier,
@@ -571,9 +561,8 @@ func TestBroadcastStorageBroadcastSuccess(t *testing.T) {
 		).Return(
 			nil,
 		).Once()
-		commitWorker, err := storage.AddingBlock(gctx, g, block, txn)
+		commitWorker, err := storage.AddingBlock(ctx, block, txn)
 		assert.NoError(t, err)
-		assert.NoError(t, g.Wait())
 
 		accounts, err := storage.LockedAccounts(ctx, txn)
 		assert.NoError(t, err)
@@ -617,10 +606,9 @@ func TestBroadcastStorageBroadcastSuccess(t *testing.T) {
 		block := blocks[5]
 
 		txn := storage.db.Transaction(ctx)
-		g, gctx := errgroup.WithContext(ctx)
 		mockHelper.On(
 			"FindTransaction",
-			gctx,
+			ctx,
 			&types.TransactionIdentifier{Hash: "tx 2"},
 			txn,
 		).Return(
@@ -630,7 +618,7 @@ func TestBroadcastStorageBroadcastSuccess(t *testing.T) {
 		).Once()
 		mockHandler.On(
 			"TransactionConfirmed",
-			gctx,
+			ctx,
 			txn,
 			"broadcast 2",
 			blocks[4].BlockIdentifier,
@@ -639,9 +627,8 @@ func TestBroadcastStorageBroadcastSuccess(t *testing.T) {
 		).Return(
 			nil,
 		).Once()
-		commitWorker, err := storage.AddingBlock(gctx, g, block, txn)
+		commitWorker, err := storage.AddingBlock(ctx, block, txn)
 		assert.NoError(t, err)
-		assert.NoError(t, g.Wait())
 
 		accounts, err := storage.LockedAccounts(ctx, txn)
 		assert.NoError(t, err)
@@ -803,7 +790,7 @@ func TestBroadcastStorageBroadcastFailure(t *testing.T) {
 		)
 		mockHandler.On(
 			"TransactionStale",
-			mock.Anything,
+			ctx,
 			mock.Anything,
 			"broadcast 1",
 			&types.TransactionIdentifier{Hash: "tx 1"},
@@ -835,7 +822,7 @@ func TestBroadcastStorageBroadcastFailure(t *testing.T) {
 		)
 		mockHandler.On(
 			"TransactionStale",
-			mock.Anything,
+			ctx,
 			mock.Anything,
 			"broadcast 2",
 			&types.TransactionIdentifier{Hash: "tx 2"},
@@ -846,7 +833,7 @@ func TestBroadcastStorageBroadcastFailure(t *testing.T) {
 		)
 		mockHandler.On(
 			"BroadcastFailed",
-			mock.Anything,
+			ctx,
 			mock.Anything,
 			"broadcast 2",
 			&types.TransactionIdentifier{Hash: "tx 2"},
@@ -858,7 +845,7 @@ func TestBroadcastStorageBroadcastFailure(t *testing.T) {
 		// Never find in block
 		mockHelper.On(
 			"FindTransaction",
-			mock.Anything,
+			ctx,
 			&types.TransactionIdentifier{Hash: "tx 1"},
 			mock.Anything,
 		).Return(
@@ -868,7 +855,7 @@ func TestBroadcastStorageBroadcastFailure(t *testing.T) {
 		)
 		mockHelper.On(
 			"FindTransaction",
-			mock.Anything,
+			ctx,
 			&types.TransactionIdentifier{Hash: "tx 2"},
 			mock.Anything,
 		).Return(
@@ -879,10 +866,8 @@ func TestBroadcastStorageBroadcastFailure(t *testing.T) {
 		for _, block := range blocks {
 			mockHelper.On("CurrentBlockIdentifier", ctx).Return(block.BlockIdentifier, nil).Once()
 			txn := storage.db.Transaction(ctx)
-			g, gctx := errgroup.WithContext(ctx)
-			commitWorker, err := storage.AddingBlock(gctx, g, block, txn)
+			commitWorker, err := storage.AddingBlock(ctx, block, txn)
 			assert.NoError(t, err)
-			assert.NoError(t, g.Wait())
 			err = txn.Commit(ctx)
 			assert.NoError(t, err)
 
@@ -1008,10 +993,8 @@ func TestBroadcastStorageBehindTip(t *testing.T) {
 		for _, block := range blocks[:60] {
 			mockHelper.On("CurrentBlockIdentifier", ctx).Return(block.BlockIdentifier, nil).Once()
 			txn := storage.db.Transaction(ctx)
-			g, gctx := errgroup.WithContext(ctx)
-			commitWorker, err := storage.AddingBlock(gctx, g, block, txn)
+			commitWorker, err := storage.AddingBlock(ctx, block, txn)
 			assert.NoError(t, err)
-			assert.NoError(t, g.Wait())
 			err = txn.Commit(ctx)
 			assert.NoError(t, err)
 
@@ -1082,7 +1065,7 @@ func TestBroadcastStorageBehindTip(t *testing.T) {
 		// Never find in block
 		mockHelper.On(
 			"FindTransaction",
-			mock.Anything,
+			ctx,
 			&types.TransactionIdentifier{Hash: "tx 1"},
 			mock.Anything,
 		).Return(
@@ -1092,7 +1075,7 @@ func TestBroadcastStorageBehindTip(t *testing.T) {
 		)
 		mockHelper.On(
 			"FindTransaction",
-			mock.Anything,
+			ctx,
 			&types.TransactionIdentifier{Hash: "tx 2"},
 			mock.Anything,
 		).Return(
@@ -1103,10 +1086,8 @@ func TestBroadcastStorageBehindTip(t *testing.T) {
 		for _, block := range blocks[60:71] {
 			mockHelper.On("CurrentBlockIdentifier", ctx).Return(block.BlockIdentifier, nil).Once()
 			txn := storage.db.Transaction(ctx)
-			g, gctx := errgroup.WithContext(ctx)
-			commitWorker, err := storage.AddingBlock(gctx, g, block, txn)
+			commitWorker, err := storage.AddingBlock(ctx, block, txn)
 			assert.NoError(t, err)
-			assert.NoError(t, g.Wait())
 			err = txn.Commit(ctx)
 			assert.NoError(t, err)
 

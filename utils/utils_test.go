@@ -25,11 +25,10 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/coinbase/rosetta-sdk-go/asserter"
-	"github.com/coinbase/rosetta-sdk-go/fetcher"
-	mocks "github.com/coinbase/rosetta-sdk-go/mocks/utils"
-	storageErrors "github.com/coinbase/rosetta-sdk-go/storage/errors"
-	"github.com/coinbase/rosetta-sdk-go/types"
+	"github.com/guapcrypto/rosetta-sdk-go/asserter"
+	"github.com/guapcrypto/rosetta-sdk-go/fetcher"
+	mocks "github.com/guapcrypto/rosetta-sdk-go/mocks/utils"
+	"github.com/guapcrypto/rosetta-sdk-go/types"
 )
 
 func TestCreateAndRemoveTempDir(t *testing.T) {
@@ -234,25 +233,16 @@ func TestMilliseconds(t *testing.T) {
 }
 
 func TestRandomNumber(t *testing.T) {
-	t.Run("success", func(t *testing.T) {
-		minAmount := big.NewInt(10)
-		maxAmount := big.NewInt(13)
+	minAmount := big.NewInt(10)
+	maxAmount := big.NewInt(13)
 
-		// somewhat crude but its fast (should be infinitely small chance we don't get all possible
-		// values in small range)
-		for i := 0; i < 10000; i++ {
-			result, err := RandomNumber(minAmount, maxAmount)
-			assert.NoError(t, err)
-			assert.NotEqual(t, -1, new(big.Int).Sub(result, minAmount).Sign())
-			assert.Equal(t, 1, new(big.Int).Sub(maxAmount, result).Sign())
-		}
-	})
-
-	t.Run("failure", func(t *testing.T) {
-		result, err := RandomNumber(big.NewInt(0), big.NewInt(-10))
-		assert.Nil(t, result)
-		assert.Error(t, err)
-	})
+	// somewhat crude but its fast (should be infinitely small chance we don't get all possible
+	// values in small range)
+	for i := 0; i < 10000; i++ {
+		result := RandomNumber(minAmount, maxAmount)
+		assert.NotEqual(t, -1, new(big.Int).Sub(result, minAmount).Sign())
+		assert.Equal(t, 1, new(big.Int).Sub(maxAmount, result).Sign())
+	}
 }
 
 var (
@@ -383,16 +373,15 @@ func TestGetAccountBalances(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestCheckNetworkTip(t *testing.T) {
+func TestCheckAtTip(t *testing.T) {
 	ctx := context.Background()
 
 	tests := map[string]struct {
 		helper   *mocks.FetcherHelper
 		tipDelay int64
 
-		expectedAtTip      bool
-		expectedIdentifier *types.BlockIdentifier
-		expectedError      error
+		expectedResult bool
+		expectedError  error
 	}{
 		"at tip": {
 			helper: func() *mocks.FetcherHelper {
@@ -405,18 +394,16 @@ func TestCheckNetworkTip(t *testing.T) {
 					map[string]interface{}(nil),
 				).Return(
 					&types.NetworkStatusResponse{
-						CurrentBlockTimestamp:  Milliseconds(),
-						CurrentBlockIdentifier: blockIdentifier,
+						CurrentBlockTimestamp: Milliseconds(),
 					},
 					nil,
 				).Once()
 
 				return mockHelper
 			}(),
-			tipDelay:           100,
-			expectedAtTip:      true,
-			expectedIdentifier: blockIdentifier,
-			expectedError:      nil,
+			tipDelay:       100,
+			expectedResult: true,
+			expectedError:  nil,
 		},
 		"not at tip": {
 			helper: func() *mocks.FetcherHelper {
@@ -429,72 +416,16 @@ func TestCheckNetworkTip(t *testing.T) {
 					map[string]interface{}(nil),
 				).Return(
 					&types.NetworkStatusResponse{
-						CurrentBlockTimestamp:  Milliseconds() - 300*MillisecondsInSecond,
-						CurrentBlockIdentifier: blockIdentifier,
+						CurrentBlockTimestamp: Milliseconds() - 300*MillisecondsInSecond,
 					},
 					nil,
 				).Once()
 
 				return mockHelper
 			}(),
-			tipDelay:           100,
-			expectedAtTip:      false,
-			expectedIdentifier: blockIdentifier,
-			expectedError:      nil,
-		},
-		"synced tip": {
-			helper: func() *mocks.FetcherHelper {
-				mockHelper := &mocks.FetcherHelper{}
-
-				mockHelper.On(
-					"NetworkStatusRetry",
-					ctx,
-					network,
-					map[string]interface{}(nil),
-				).Return(
-					&types.NetworkStatusResponse{
-						CurrentBlockTimestamp:  Milliseconds() - 300*MillisecondsInSecond,
-						CurrentBlockIdentifier: blockIdentifier,
-						SyncStatus: &types.SyncStatus{
-							Synced: types.Bool(true),
-						},
-					},
-					nil,
-				).Once()
-
-				return mockHelper
-			}(),
-			tipDelay:           100,
-			expectedAtTip:      true,
-			expectedIdentifier: blockIdentifier,
-			expectedError:      nil,
-		},
-		"not synced tip": {
-			helper: func() *mocks.FetcherHelper {
-				mockHelper := &mocks.FetcherHelper{}
-
-				mockHelper.On(
-					"NetworkStatusRetry",
-					ctx,
-					network,
-					map[string]interface{}(nil),
-				).Return(
-					&types.NetworkStatusResponse{
-						CurrentBlockTimestamp:  Milliseconds() - 300*MillisecondsInSecond,
-						CurrentBlockIdentifier: blockIdentifier,
-						SyncStatus: &types.SyncStatus{
-							Synced: types.Bool(false),
-						},
-					},
-					nil,
-				).Once()
-
-				return mockHelper
-			}(),
-			tipDelay:           100,
-			expectedAtTip:      false,
-			expectedIdentifier: blockIdentifier,
-			expectedError:      nil,
+			tipDelay:       100,
+			expectedResult: false,
+			expectedError:  nil,
 		},
 		"error": {
 			helper: func() *mocks.FetcherHelper {
@@ -515,213 +446,21 @@ func TestCheckNetworkTip(t *testing.T) {
 				return mockHelper
 			}(),
 			tipDelay:      100,
-			expectedAtTip: false,
 			expectedError: fetcher.ErrRequestFailed,
 		},
 	}
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			atTip, tipBlock, err := CheckNetworkTip(ctx, network, test.tipDelay, test.helper)
+			atTip, err := CheckAtTip(ctx, network, test.helper, test.tipDelay)
 			if test.expectedError != nil {
 				assert.False(t, atTip)
-				assert.Nil(t, tipBlock)
 				assert.True(t, errors.Is(err, test.expectedError))
 			} else {
-				assert.Equal(t, test.expectedAtTip, atTip)
-				assert.Equal(t, test.expectedIdentifier, tipBlock)
+				assert.Equal(t, test.expectedResult, atTip)
 				assert.NoError(t, err)
 			}
 			test.helper.AssertExpectations(t)
-		})
-	}
-}
-
-func TestCheckStorageTip(t *testing.T) {
-	ctx := context.Background()
-
-	tests := map[string]struct {
-		f        *mocks.FetcherHelper
-		b        *mocks.BlockStorageHelper
-		tipDelay int64
-
-		expectedAtTip      bool
-		expectedIdentifier *types.BlockIdentifier
-		expectedError      error
-	}{
-		"stored block within tip delay": {
-			f: &mocks.FetcherHelper{},
-			b: func() *mocks.BlockStorageHelper {
-				mockHelper := &mocks.BlockStorageHelper{}
-				mockHelper.On(
-					"GetBlockLazy",
-					ctx,
-					(*types.PartialBlockIdentifier)(nil),
-				).Return(
-					&types.BlockResponse{
-						Block: &types.Block{
-							BlockIdentifier: blockIdentifier,
-							Timestamp:       Milliseconds(),
-						},
-					},
-					nil,
-				).Once()
-				return mockHelper
-			}(),
-			tipDelay:           1000,
-			expectedAtTip:      true,
-			expectedIdentifier: blockIdentifier,
-			expectedError:      nil,
-		},
-		"stored block not within tip delay, network synced ": {
-			f: func() *mocks.FetcherHelper {
-				mockHelper := &mocks.FetcherHelper{}
-				mockHelper.On("NetworkStatusRetry",
-					ctx,
-					network,
-					map[string]interface{}(nil)).Return(&types.NetworkStatusResponse{
-					CurrentBlockTimestamp:  Milliseconds() - 300*MillisecondsInSecond,
-					CurrentBlockIdentifier: blockIdentifier,
-					SyncStatus: &types.SyncStatus{
-						Synced: types.Bool(true),
-					},
-				}, nil)
-				return mockHelper
-			}(),
-			b: func() *mocks.BlockStorageHelper {
-				mockHelper := &mocks.BlockStorageHelper{}
-				mockHelper.On(
-					"GetBlockLazy",
-					ctx,
-					(*types.PartialBlockIdentifier)(nil),
-				).Return(
-					&types.BlockResponse{
-						Block: &types.Block{
-							BlockIdentifier: blockIdentifier,
-							Timestamp:       Milliseconds() - 300*MillisecondsInSecond,
-						},
-					},
-					nil,
-				).Once()
-				return mockHelper
-			}(),
-			tipDelay:           100,
-			expectedAtTip:      true,
-			expectedIdentifier: blockIdentifier,
-			expectedError:      nil,
-		},
-		"stored block not within tip delay, network not synced": {
-			f: func() *mocks.FetcherHelper {
-				mockHelper := &mocks.FetcherHelper{}
-				mockHelper.On("NetworkStatusRetry",
-					ctx,
-					network,
-					map[string]interface{}(nil)).Return(&types.NetworkStatusResponse{
-					CurrentBlockTimestamp:  Milliseconds() - 300*MillisecondsInSecond,
-					CurrentBlockIdentifier: blockIdentifier,
-					SyncStatus: &types.SyncStatus{
-						Synced: types.Bool(false),
-					},
-				}, nil).Once()
-				return mockHelper
-			}(),
-			b: func() *mocks.BlockStorageHelper {
-				mockHelper := &mocks.BlockStorageHelper{}
-				mockHelper.On(
-					"GetBlockLazy",
-					ctx,
-					(*types.PartialBlockIdentifier)(nil),
-				).Return(
-					&types.BlockResponse{
-						Block: &types.Block{
-							BlockIdentifier: blockIdentifier,
-							Timestamp:       Milliseconds() - 300*MillisecondsInSecond,
-						},
-					},
-					nil,
-				).Once()
-				return mockHelper
-			}(),
-			tipDelay:           100,
-			expectedAtTip:      false,
-			expectedIdentifier: blockIdentifier,
-			expectedError:      nil,
-		},
-		"stored block and network blocks different": {
-			f: func() *mocks.FetcherHelper {
-				mockHelper := &mocks.FetcherHelper{}
-				mockHelper.On("NetworkStatusRetry",
-					ctx,
-					network,
-					map[string]interface{}(nil)).Return(&types.NetworkStatusResponse{
-					CurrentBlockTimestamp: Milliseconds() - 300*MillisecondsInSecond,
-					CurrentBlockIdentifier: &types.BlockIdentifier{
-						Hash:  "block",
-						Index: 2,
-					},
-					SyncStatus: &types.SyncStatus{
-						Synced: types.Bool(true),
-					},
-				}, nil).Once()
-				return mockHelper
-			}(),
-			b: func() *mocks.BlockStorageHelper {
-				mockHelper := &mocks.BlockStorageHelper{}
-				mockHelper.On(
-					"GetBlockLazy",
-					ctx,
-					(*types.PartialBlockIdentifier)(nil),
-				).Return(
-					&types.BlockResponse{
-						Block: &types.Block{
-							BlockIdentifier: blockIdentifier,
-							Timestamp:       Milliseconds() - 300*MillisecondsInSecond,
-						},
-					},
-					nil,
-				).Once()
-				return mockHelper
-			}(),
-			tipDelay:           100,
-			expectedAtTip:      false,
-			expectedIdentifier: blockIdentifier,
-			expectedError:      nil,
-		},
-		"no blocks in storage": {
-			f: &mocks.FetcherHelper{},
-			b: func() *mocks.BlockStorageHelper {
-				mockHelper := &mocks.BlockStorageHelper{}
-				mockHelper.On(
-					"GetBlockLazy",
-					ctx,
-					(*types.PartialBlockIdentifier)(nil),
-				).Return(
-					nil,
-					storageErrors.ErrHeadBlockNotFound,
-				).Once()
-				return mockHelper
-			}(),
-			tipDelay:           100,
-			expectedAtTip:      false,
-			expectedIdentifier: nil,
-			expectedError:      nil,
-		},
-	}
-
-	for name, test := range tests {
-		t.Run(name, func(t *testing.T) {
-			atTip, tipBlock, err := CheckStorageTip(ctx, network, test.tipDelay, test.f, test.b)
-			if test.expectedError != nil {
-				assert.False(t, atTip)
-				assert.Nil(t, tipBlock)
-				assert.True(t, errors.Is(err, test.expectedError))
-			} else {
-				assert.Equal(t, test.expectedAtTip, atTip)
-				assert.Equal(t, test.expectedIdentifier, tipBlock)
-				assert.NoError(t, err)
-			}
-			test.f.AssertExpectations(t)
-			test.b.AssertExpectations(t)
 		})
 	}
 }

@@ -15,18 +15,14 @@
 package keys
 
 import (
-	"crypto/ecdsa"
 	"crypto/ed25519"
-	"crypto/elliptic"
-	"crypto/rand"
 	"encoding/hex"
 	"fmt"
-	"math/big"
 
 	"github.com/btcsuite/btcd/btcec"
 
-	"github.com/coinbase/rosetta-sdk-go/asserter"
-	"github.com/coinbase/rosetta-sdk-go/types"
+	"github.com/guapcrypto/rosetta-sdk-go/asserter"
+	"github.com/guapcrypto/rosetta-sdk-go/types"
 )
 
 // PrivKeyBytesLen are 32-bytes for all supported curvetypes
@@ -92,32 +88,6 @@ func ImportPrivateKey(privKeyHex string, curve types.CurveType) (*KeyPair, error
 			PublicKey:  pubKey,
 			PrivateKey: rawPrivKey.Seed(),
 		}
-	case types.Secp256r1:
-		crv := elliptic.P256()
-		x, y := crv.ScalarBaseMult(privKey)
-
-		// IsOnCurve will return false for the point at infinity (0, 0)
-		// See:
-		// https://github.com/golang/go/blob/3298300ddf45a0792b4d8ea5e05f0fbceec4c9f9/src/crypto/elliptic/elliptic.go#L24
-		if !crv.IsOnCurve(x, y) {
-			return nil, ErrPubKeyNotOnCurve
-		}
-
-		rawPubKey := ecdsa.PublicKey{X: x, Y: y, Curve: crv}
-		rawPrivKey := ecdsa.PrivateKey{
-			PublicKey: rawPubKey,
-			D:         new(big.Int).SetBytes(privKey),
-		}
-
-		pubKey := &types.PublicKey{
-			Bytes:     elliptic.Marshal(crv, rawPubKey.X, rawPubKey.Y),
-			CurveType: curve,
-		}
-
-		keyPair = &KeyPair{
-			PublicKey:  pubKey,
-			PrivateKey: rawPrivKey.D.Bytes(),
-		}
 	default:
 		return nil, fmt.Errorf("%w: %s", ErrCurveTypeNotSupported, curve)
 	}
@@ -167,22 +137,6 @@ func GenerateKeypair(curve types.CurveType) (*KeyPair, error) {
 			PublicKey:  pubKey,
 			PrivateKey: rawPrivKey.Seed(),
 		}
-	case types.Secp256r1:
-		crv := elliptic.P256()
-		rawPrivKey, err := ecdsa.GenerateKey(crv, rand.Reader)
-		if err != nil {
-			return nil, fmt.Errorf("%w: %v", ErrKeyGenSecp256r1Failed, err)
-		}
-		rawPubKey := rawPrivKey.PublicKey
-		pubKey := &types.PublicKey{
-			Bytes:     elliptic.Marshal(crv, rawPubKey.X, rawPubKey.Y),
-			CurveType: curve,
-		}
-
-		keyPair = &KeyPair{
-			PublicKey:  pubKey,
-			PrivateKey: rawPrivKey.D.Bytes(),
-		}
 	default:
 		return nil, fmt.Errorf("%w: %s", ErrCurveTypeNotSupported, curve)
 	}
@@ -217,8 +171,6 @@ func (k *KeyPair) Signer() (Signer, error) {
 		return &SignerSecp256k1{k}, nil
 	case types.Edwards25519:
 		return &SignerEdwards25519{k}, nil
-	case types.Secp256r1:
-		return &SignerSecp256r1{k}, nil
 	default:
 		return nil, fmt.Errorf("%w: %s", ErrCurveTypeNotSupported, k.PublicKey.CurveType)
 	}

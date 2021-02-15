@@ -23,10 +23,9 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	"github.com/coinbase/rosetta-sdk-go/parser"
-	storageErrors "github.com/coinbase/rosetta-sdk-go/storage/errors"
-	"github.com/coinbase/rosetta-sdk-go/types"
-	"github.com/coinbase/rosetta-sdk-go/utils"
+	"github.com/guapcrypto/rosetta-sdk-go/parser"
+	"github.com/guapcrypto/rosetta-sdk-go/types"
+	"github.com/guapcrypto/rosetta-sdk-go/utils"
 )
 
 // New creates a new Reconciler.
@@ -214,8 +213,6 @@ func (r *Reconciler) queueChanges(
 			); err != nil {
 				return err
 			}
-
-			continue
 		}
 
 		// Add all seen accounts to inactive reconciler queue.
@@ -326,15 +323,6 @@ func (r *Reconciler) CompareBalance(
 		liveBlock.Index,
 	)
 	if err != nil {
-		if errors.Is(err, storageErrors.ErrAccountMissing) {
-			return zeroString, "", head.Index, fmt.Errorf(
-				"%w for %+v:%+v",
-				storageErrors.ErrAccountMissing,
-				account,
-				currency,
-			)
-		}
-
 		return zeroString, "", head.Index, fmt.Errorf(
 			"%w for %+v:%+v: %v",
 			ErrGetComputedBalanceFailed,
@@ -518,28 +506,6 @@ func (r *Reconciler) accountReconciliation(
 					account,
 					currency,
 					BlockGone,
-				)
-			}
-
-			if errors.Is(err, storageErrors.ErrAccountMissing) {
-				// When interesting accounts are specified,
-				// we try to reconcile balances for each of these
-				// accounts at each block height.
-				// But, until we encounter a block with an interesting account,
-				// balance storage will not have an entry for
-				// it, leading to this error. So, we simply skip the reconciliation
-				// in this case.
-				r.debugLog(
-					"skipping reconciliation because account %s is missing.",
-					types.PrintStruct(account),
-				)
-
-				return r.handler.ReconciliationSkipped(
-					ctx,
-					reconciliationType,
-					account,
-					currency,
-					AccountMissing,
 				)
 			}
 
@@ -859,7 +825,6 @@ func (r *Reconciler) reconcileInactiveAccounts( // nolint:gocognit
 		shouldAttempt, head := r.shouldAttemptInactiveReconciliation(ctx)
 		if !shouldAttempt {
 			r.queueMap.Unlock(key)
-			r.inactiveQueueMutex.Unlock()
 			time.Sleep(inactiveReconciliationSleep)
 			continue
 		}
@@ -869,13 +834,7 @@ func (r *Reconciler) reconcileInactiveAccounts( // nolint:gocognit
 			nextValidIndex = nextAcct.LastCheck.Index + r.inactiveFrequency
 		}
 
-		if nextValidIndex <= head.Index ||
-			r.helper.ForceInactiveReconciliation(
-				ctx,
-				nextAcct.Entry.Account,
-				nextAcct.Entry.Currency,
-				nextAcct.LastCheck,
-			) {
+		if nextValidIndex <= head.Index {
 			r.inactiveQueue = r.inactiveQueue[1:]
 			r.inactiveQueueMutex.Unlock()
 

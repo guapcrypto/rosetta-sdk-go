@@ -19,10 +19,10 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/coinbase/rosetta-sdk-go/asserter"
-	"github.com/coinbase/rosetta-sdk-go/examples/server/services"
-	"github.com/coinbase/rosetta-sdk-go/server"
-	"github.com/coinbase/rosetta-sdk-go/types"
+	"github.com/guapcrypto/rosetta-sdk-go/asserter"
+	"github.com/guapcrypto/rosetta-sdk-go/examples/server/services"
+	"github.com/guapcrypto/rosetta-sdk-go/server"
+	"github.com/guapcrypto/rosetta-sdk-go/types"
 )
 
 const (

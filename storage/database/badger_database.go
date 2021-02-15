@@ -31,10 +31,10 @@ import (
 	"github.com/dgraph-io/badger/v2"
 	"github.com/dgraph-io/badger/v2/options"
 
-	"github.com/coinbase/rosetta-sdk-go/storage/encoder"
-	storageErrs "github.com/coinbase/rosetta-sdk-go/storage/errors"
-	"github.com/coinbase/rosetta-sdk-go/types"
-	"github.com/coinbase/rosetta-sdk-go/utils"
+	"github.com/guapcrypto/rosetta-sdk-go/storage/encoder"
+	storageErrs "github.com/guapcrypto/rosetta-sdk-go/storage/errors"
+	"github.com/guapcrypto/rosetta-sdk-go/types"
+	"github.com/guapcrypto/rosetta-sdk-go/utils"
 )
 
 const (
@@ -55,15 +55,6 @@ const (
 
 	// DefaultLogValueSize is 64 MB.
 	DefaultLogValueSize = 64 << 20
-
-	// PerformanceMaxTableSize is 3072 MB. The larger
-	// this value is, the larger database transactions
-	// storage can handle (~15% of the max table size
-	// == max commit size).
-	PerformanceMaxTableSize = 3072 << 20
-
-	// PerformanceLogValueSize is 256 MB.
-	PerformanceLogValueSize = 256 << 20
 
 	// DefaultCompressionMode is the default block
 	// compression setting.
@@ -174,8 +165,7 @@ func PerformanceBadgerOptions(dir string) badger.Options {
 	opts.Compression = DefaultCompressionMode
 
 	// Use an extended table size for larger commits.
-	opts.MaxTableSize = PerformanceMaxTableSize
-	opts.ValueLogFileSize = PerformanceLogValueSize
+	opts.MaxTableSize = DefaultMaxTableSize
 
 	// Load tables into memory and memory map value logs.
 	opts.TableLoadingMode = options.MemoryMap

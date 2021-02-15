@@ -17,7 +17,7 @@ package errors
 import (
 	"errors"
 
-	utils "github.com/coinbase/rosetta-sdk-go/errors"
+	utils "github.com/guapcrypto/rosetta-sdk-go/errors"
 )
 
 // Badger Storage Errors
@@ -278,7 +278,6 @@ var (
 	ErrNoAddrAvailable          = errors.New("no addresses available")
 	ErrAddrImportFailed         = errors.New("unable to import prefunded account")
 	ErrPrefundedAcctStoreFailed = errors.New("unable to store prefunded account")
-	ErrRandomAddress            = errors.New("cannot select random address")
 
 	KeyStorageErrs = []error{
 		ErrAddrExists,
@@ -299,7 +298,6 @@ var (
 		ErrNoAddrAvailable,
 		ErrAddrImportFailed,
 		ErrPrefundedAcctStoreFailed,
-		ErrRandomAddress,
 	}
 )
 
@@ -324,7 +322,7 @@ var (
 
 	// ErrAccountMissing is returned when a fetched
 	// account does not exist.
-	ErrAccountMissing = errors.New("account missing")
+	ErrAccountMissing = errors.New("block nil")
 
 	// ErrInvalidChangeValue is returned when the change value
 	// cannot be parsed.
@@ -334,8 +332,6 @@ var (
 	// to save cannot be parsed.
 	ErrInvalidValue = errors.New("invalid value")
 
-	ErrHelperHandlerMissing = errors.New("balance storage helper or handler is missing")
-
 	BalanceStorageErrs = []error{
 		ErrNegativeBalance,
 		ErrInvalidLiveBalance,
@@ -344,7 +340,6 @@ var (
 		ErrAccountMissing,
 		ErrInvalidChangeValue,
 		ErrInvalidValue,
-		ErrHelperHandlerMissing,
 	}
 )
 

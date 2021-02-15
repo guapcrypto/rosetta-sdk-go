@@ -21,7 +21,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/coinbase/rosetta-sdk-go/types"
+	"github.com/guapcrypto/rosetta-sdk-go/types"
 )
 
 func TestBlockIdentifier(t *testing.T) {
@@ -553,18 +553,6 @@ func TestBlock(t *testing.T) {
 				Amount:  validAmount,
 			},
 		},
-		RelatedTransactions: []*types.RelatedTransaction{
-			{
-				NetworkIdentifier: &types.NetworkIdentifier{
-					Blockchain: "hello",
-					Network:    "world",
-				},
-				TransactionIdentifier: &types.TransactionIdentifier{
-					Hash: "blah",
-				},
-				Direction: types.Forward,
-			},
-		},
 	}
 	relatedToSelfTransaction := &types.Transaction{
 		TransactionIdentifier: &types.TransactionIdentifier{
@@ -682,48 +670,6 @@ func TestBlock(t *testing.T) {
 				Status:  types.String("SUCCESS"),
 				Account: validAccount,
 				Amount:  validAmount,
-			},
-		},
-	}
-	invalidRelatedTransaction := &types.Transaction{
-		TransactionIdentifier: &types.TransactionIdentifier{
-			Hash: "blah",
-		},
-		Operations: []*types.Operation{
-			{
-				OperationIdentifier: &types.OperationIdentifier{
-					Index: int64(0),
-				},
-				Type:    "PAYMENT",
-				Status:  types.String("SUCCESS"),
-				Account: validAccount,
-				Amount:  validAmount,
-			},
-			{
-				OperationIdentifier: &types.OperationIdentifier{
-					Index: int64(1),
-				},
-				RelatedOperations: []*types.OperationIdentifier{
-					{
-						Index: int64(0),
-					},
-				},
-				Type:    "PAYMENT",
-				Status:  types.String("SUCCESS"),
-				Account: validAccount,
-				Amount:  validAmount,
-			},
-		},
-		RelatedTransactions: []*types.RelatedTransaction{
-			{
-				NetworkIdentifier: &types.NetworkIdentifier{
-					Blockchain: "hello",
-					Network:    "world",
-				},
-				TransactionIdentifier: &types.TransactionIdentifier{
-					Hash: "blah",
-				},
-				Direction: "blah",
 			},
 		},
 	}
@@ -898,15 +844,6 @@ func TestBlock(t *testing.T) {
 				},
 			},
 			err: ErrTxIdentifierIsNil,
-		},
-		"invalid related transaction": {
-			block: &types.Block{
-				BlockIdentifier:       validBlockIdentifier,
-				ParentBlockIdentifier: validParentBlockIdentifier,
-				Timestamp:             MinUnixEpoch + 1,
-				Transactions:          []*types.Transaction{invalidRelatedTransaction},
-			},
-			err: ErrInvalidDirection,
 		},
 	}
 

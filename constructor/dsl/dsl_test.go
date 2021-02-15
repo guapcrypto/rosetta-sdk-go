@@ -22,7 +22,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/coinbase/rosetta-sdk-go/constructor/job"
+	"github.com/guapcrypto/rosetta-sdk-go/constructor/job"
 )
 
 func TestParse(t *testing.T) {
@@ -47,15 +47,6 @@ func TestParse(t *testing.T) {
 									Type:       job.SetVariable,
 									Input:      `{"symbol":"ETH","decimals":18}`,
 									OutputPath: "currency",
-								},
-								{
-									Type:  job.SetBlob,
-									Input: `{"key":"currency","value":{{currency}}}`,
-								},
-								{
-									Type:       job.GetBlob,
-									Input:      `{"key":"currency"}`,
-									OutputPath: "fetched_currency",
 								},
 								{
 									Type:       job.LoadEnv,

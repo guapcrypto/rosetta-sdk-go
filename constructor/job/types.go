@@ -15,11 +15,10 @@
 package job
 
 import (
-	"encoding/json"
 	"net/http"
 
-	"github.com/coinbase/rosetta-sdk-go/keys"
-	"github.com/coinbase/rosetta-sdk-go/types"
+	"github.com/guapcrypto/rosetta-sdk-go/keys"
+	"github.com/guapcrypto/rosetta-sdk-go/types"
 )
 
 const (
@@ -135,20 +134,6 @@ const (
 	// for making a request to a faucet to automate Construction API
 	// testing.
 	HTTPRequest ActionType = "http_request"
-
-	// SetBlob stores an arbitrary blob at some key (any valid JSON is
-	// accepted as a key). If a value at a key already exists,
-	// it will be overwritten.
-	//
-	// SetBlob is often used when there is some metadata created
-	// during a workflow execution that needs to be accessed
-	// in another workflow (i.e. a mapping between different generated
-	// addresses).
-	SetBlob ActionType = "set_blob"
-
-	// GetBlob attempts to retrieve some previously saved blob.
-	// If the blob is not accessible, it will return an error.
-	GetBlob ActionType = "get_blob"
 )
 
 // Action is a step of computation that
@@ -293,19 +278,6 @@ type HTTPRequestInput struct {
 	// If the Method is POST, the Body
 	// can be populated with JSON.
 	Body string `json:"body"`
-}
-
-// SetBlobInput is the input to
-// SetBlob.
-type SetBlobInput struct {
-	Key   interface{}     `json:"key"`
-	Value json.RawMessage `json:"value"`
-}
-
-// GetBlobInput is the input to
-// GetBlob.
-type GetBlobInput struct {
-	Key interface{} `json:"key"`
 }
 
 // Scenario is a collection of Actions with a specific

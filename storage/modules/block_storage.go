@@ -19,16 +19,17 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"runtime"
 	"strconv"
 	"strings"
 
 	"github.com/neilotoole/errgroup"
 
-	"github.com/coinbase/rosetta-sdk-go/storage/database"
-	"github.com/coinbase/rosetta-sdk-go/storage/encoder"
-	storageErrs "github.com/coinbase/rosetta-sdk-go/storage/errors"
-	"github.com/coinbase/rosetta-sdk-go/types"
-	"github.com/coinbase/rosetta-sdk-go/utils"
+	"github.com/guapcrypto/rosetta-sdk-go/storage/database"
+	"github.com/guapcrypto/rosetta-sdk-go/storage/encoder"
+	storageErrs "github.com/guapcrypto/rosetta-sdk-go/storage/errors"
+	"github.com/guapcrypto/rosetta-sdk-go/types"
+	"github.com/guapcrypto/rosetta-sdk-go/utils"
 )
 
 const (
@@ -107,16 +108,9 @@ func getTransactionPrefix(
 // to be done while a block is added/removed from storage
 // in the same database transaction as the change.
 type BlockWorker interface {
-	AddingBlock(
-		context.Context,
-		*errgroup.Group,
-		*types.Block,
-		database.Transaction,
-	) (database.CommitWorker, error)
-
+	AddingBlock(context.Context, *types.Block, database.Transaction) (database.CommitWorker, error)
 	RemovingBlock(
 		context.Context,
-		*errgroup.Group,
 		*types.Block,
 		database.Transaction,
 	) (database.CommitWorker, error)
@@ -125,20 +119,19 @@ type BlockWorker interface {
 // BlockStorage implements block specific storage methods
 // on top of a database.Database and database.Transaction interface.
 type BlockStorage struct {
-	db database.Database
+	db     database.Database
+	numCPU int
 
-	workers           []BlockWorker
-	workerConcurrency int
+	workers []BlockWorker
 }
 
 // NewBlockStorage returns a new BlockStorage.
 func NewBlockStorage(
 	db database.Database,
-	workerConcurrency int,
 ) *BlockStorage {
 	return &BlockStorage{
-		db:                db,
-		workerConcurrency: workerConcurrency,
+		db:     db,
+		numCPU: runtime.NumCPU(),
 	}
 }
 
@@ -259,7 +252,7 @@ func (b *BlockStorage) pruneBlock(
 		blockIdentifier := blockResponse.Block.BlockIdentifier
 
 		// Remove all transaction hashes
-		g, gctx := errgroup.WithContextN(ctx, b.workerConcurrency, b.workerConcurrency)
+		g, gctx := errgroup.WithContextN(ctx, b.numCPU, b.numCPU)
 		for i := range blockResponse.OtherTransactions {
 			// We need to set variable before calling goroutine
 			// to avoid getting an updated pointer as loop iteration
@@ -568,52 +561,21 @@ func (b *BlockStorage) GetBlock(
 	return b.GetBlockTransactional(ctx, transaction, blockIdentifier)
 }
 
-func (b *BlockStorage) seeBlock(
+func (b *BlockStorage) storeBlock(
 	ctx context.Context,
 	transaction database.Transaction,
 	blockResponse *types.BlockResponse,
-) (bool, error) {
+) error {
 	blockIdentifier := blockResponse.Block.BlockIdentifier
 	namespace, key := getBlockHashKey(blockIdentifier.Hash)
 	buf, err := b.db.Encoder().Encode(namespace, blockResponse)
 	if err != nil {
-		return false, fmt.Errorf("%w: %v", storageErrs.ErrBlockEncodeFailed, err)
+		return fmt.Errorf("%w: %v", storageErrs.ErrBlockEncodeFailed, err)
 	}
 
-	exists, val, err := transaction.Get(ctx, key)
-	if err != nil {
-		return false, err
+	if err := storeUniqueKey(ctx, transaction, key, buf, true); err != nil {
+		return fmt.Errorf("%w: %v", storageErrs.ErrBlockStoreFailed, err)
 	}
-
-	if !exists {
-		return false, transaction.Set(ctx, key, buf, true)
-	}
-
-	var rosettaBlockResponse types.BlockResponse
-	err = b.db.Encoder().Decode(namespace, val, &rosettaBlockResponse, true)
-	if err != nil {
-		return false, err
-	}
-
-	// Exit early if block already exists!
-	if blockResponse.Block.BlockIdentifier.Hash == rosettaBlockResponse.Block.BlockIdentifier.Hash &&
-		blockResponse.Block.BlockIdentifier.Index == rosettaBlockResponse.Block.BlockIdentifier.Index {
-		return true, nil
-	}
-
-	return false, fmt.Errorf(
-		"%w: duplicate key %s found",
-		storageErrs.ErrDuplicateKey,
-		string(key),
-	)
-}
-
-func (b *BlockStorage) storeBlock(
-	ctx context.Context,
-	transaction database.Transaction,
-	blockIdentifier *types.BlockIdentifier,
-) error {
-	_, key := getBlockHashKey(blockIdentifier.Hash)
 
 	if err := storeUniqueKey(
 		ctx,
@@ -636,13 +598,12 @@ func (b *BlockStorage) storeBlock(
 	return nil
 }
 
-// SeeBlock pre-stores a block or returns an error.
-func (b *BlockStorage) SeeBlock(
+// AddBlock stores a block or returns an error.
+func (b *BlockStorage) AddBlock(
 	ctx context.Context,
 	block *types.Block,
 ) error {
-	_, key := getBlockHashKey(block.BlockIdentifier.Hash)
-	transaction := b.db.WriteTransaction(ctx, string(key), true)
+	transaction := b.db.WriteTransaction(ctx, blockSyncIdentifier, true)
 	defer transaction.Discard(ctx)
 
 	// Store all transactions in order and check for duplicates
@@ -678,16 +639,12 @@ func (b *BlockStorage) SeeBlock(
 	}
 
 	// Store block
-	exists, err := b.seeBlock(ctx, transaction, blockWithoutTransactions)
+	err := b.storeBlock(ctx, transaction, blockWithoutTransactions)
 	if err != nil {
 		return fmt.Errorf("%w: %v", storageErrs.ErrBlockStoreFailed, err)
 	}
 
-	if exists {
-		return nil
-	}
-
-	g, gctx := errgroup.WithContextN(ctx, b.workerConcurrency, b.workerConcurrency)
+	g, gctx := errgroup.WithContextN(ctx, b.numCPU, b.numCPU)
 	for i := range block.Transactions {
 		// We need to set variable before calling goroutine
 		// to avoid getting an updated pointer as loop iteration
@@ -709,23 +666,6 @@ func (b *BlockStorage) SeeBlock(
 	}
 	if err := g.Wait(); err != nil {
 		return err
-	}
-
-	return transaction.Commit(ctx)
-}
-
-// AddBlock stores a block or returns an error.
-func (b *BlockStorage) AddBlock(
-	ctx context.Context,
-	block *types.Block,
-) error {
-	transaction := b.db.WriteTransaction(ctx, blockSyncIdentifier, true)
-	defer transaction.Discard(ctx)
-
-	// Store block
-	err := b.storeBlock(ctx, transaction, block.BlockIdentifier)
-	if err != nil {
-		return fmt.Errorf("%w: %v", storageErrs.ErrBlockStoreFailed, err)
 	}
 
 	return b.callWorkersAndCommit(ctx, block, transaction, true)
@@ -787,7 +727,7 @@ func (b *BlockStorage) RemoveBlock(
 	}
 
 	// Remove all transaction hashes
-	g, gctx := errgroup.WithContextN(ctx, b.workerConcurrency, b.workerConcurrency)
+	g, gctx := errgroup.WithContextN(ctx, b.numCPU, b.numCPU)
 	for i := range block.Transactions {
 		// We need to set variable before calling goroutine
 		// to avoid getting an updated pointer as loop iteration
@@ -821,28 +761,19 @@ func (b *BlockStorage) callWorkersAndCommit(
 	adding bool,
 ) error {
 	commitWorkers := make([]database.CommitWorker, len(b.workers))
-
-	// Provision global errgroup to use for all workers
-	// so that we don't need to wait at the end of each worker
-	// for all results.
-	g, gctx := errgroup.WithContextN(ctx, b.workerConcurrency, b.workerConcurrency)
 	for i, w := range b.workers {
 		var cw database.CommitWorker
 		var err error
 		if adding {
-			cw, err = w.AddingBlock(gctx, g, block, txn)
+			cw, err = w.AddingBlock(ctx, block, txn)
 		} else {
-			cw, err = w.RemovingBlock(gctx, g, block, txn)
+			cw, err = w.RemovingBlock(ctx, block, txn)
 		}
 		if err != nil {
 			return err
 		}
 
 		commitWorkers[i] = cw
-	}
-
-	if err := g.Wait(); err != nil {
-		return err
 	}
 
 	if err := txn.Commit(ctx); err != nil {
@@ -1056,42 +987,21 @@ func (b *BlockStorage) FindTransaction(
 		return nil, nil, nil
 	}
 
-	head, err := b.GetHeadBlockIdentifierTransactional(ctx, txn)
-	if err != nil {
-		return nil, nil, err
-	}
-
 	var newestBlock *types.BlockIdentifier
 	var newestTransaction *types.Transaction
-	var transactionUnsequenced bool
 	for _, blockTransaction := range blockTransactions {
 		if newestBlock == nil || blockTransaction.BlockIdentifier.Index > newestBlock.Index {
-			// Now that we are optimistically storing data, there is a chance
-			// we may fetch a transaction from a seen but unsequenced block.
-			if head != nil && blockTransaction.BlockIdentifier.Index > head.Index {
-				// We have seen a transaction, but it's in a block that is not yet
-				// sequenced.
-				transactionUnsequenced = true
-				continue
-			}
-
 			newestBlock = blockTransaction.BlockIdentifier
-			// When `blockTransaction` is pruned, `blockTransaction.Transaction` is set to nil
 			newestTransaction = blockTransaction.Transaction
 		}
 	}
 
-	if newestTransaction != nil {
-		return newestBlock, newestTransaction, nil
-	}
-
-	if !transactionUnsequenced {
-		// All matching transaction have been pruned
+	// If the transaction has been pruned, it will be nil.
+	if newestTransaction == nil {
 		return nil, nil, storageErrs.ErrCannotAccessPrunedData
 	}
 
-	// A transaction exists but we have not yet sequenced the block it is in
-	return nil, nil, nil
+	return newestBlock, newestTransaction, nil
 }
 
 func (b *BlockStorage) findBlockTransaction(

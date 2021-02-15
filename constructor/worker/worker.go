@@ -29,12 +29,12 @@ import (
 	"github.com/lucasjones/reggen"
 	"github.com/tidwall/sjson"
 
-	"github.com/coinbase/rosetta-sdk-go/asserter"
-	"github.com/coinbase/rosetta-sdk-go/constructor/job"
-	"github.com/coinbase/rosetta-sdk-go/keys"
-	"github.com/coinbase/rosetta-sdk-go/storage/database"
-	"github.com/coinbase/rosetta-sdk-go/types"
-	"github.com/coinbase/rosetta-sdk-go/utils"
+	"github.com/guapcrypto/rosetta-sdk-go/asserter"
+	"github.com/guapcrypto/rosetta-sdk-go/constructor/job"
+	"github.com/guapcrypto/rosetta-sdk-go/keys"
+	"github.com/guapcrypto/rosetta-sdk-go/storage/database"
+	"github.com/guapcrypto/rosetta-sdk-go/types"
+	"github.com/guapcrypto/rosetta-sdk-go/utils"
 )
 
 // New returns a new *Worker.
@@ -80,10 +80,6 @@ func (w *Worker) invokeWorker(
 		return LoadEnvWorker(input)
 	case job.HTTPRequest:
 		return HTTPRequestWorker(input)
-	case job.SetBlob:
-		return "", w.SetBlobWorker(ctx, dbTx, input)
-	case job.GetBlob:
-		return w.GetBlobWorker(ctx, dbTx, input)
 	default:
 		return "", fmt.Errorf("%w: %s", ErrInvalidActionType, action)
 	}
@@ -333,11 +329,7 @@ func RandomNumberWorker(rawInput string) (string, error) {
 		return "", fmt.Errorf("%w: %s", ErrActionFailed, err.Error())
 	}
 
-	randNum, err := utils.RandomNumber(min, max)
-	if err != nil {
-		return "", fmt.Errorf("%w: %s", ErrActionFailed, err.Error())
-	}
-
+	randNum := utils.RandomNumber(min, max)
 	return marshalString(randNum.String()), nil
 }
 
@@ -516,31 +508,25 @@ func (w *Worker) availableAccounts(
 	return accounts, unlockedAccounts, nil
 }
 
-func shouldCreateRandomAccount(
-	input *job.FindBalanceInput,
-	accountCount int,
-) (bool, error) {
+func shouldCreateRandomAccount(input *job.FindBalanceInput, accountCount int) bool {
 	if input.MinimumBalance.Value != "0" {
-		return false, nil
+		return false
 	}
 
 	if input.CreateLimit <= 0 || accountCount >= input.CreateLimit {
-		return false, nil
+		return false
 	}
 
-	rand, err := utils.RandomNumber(
+	if utils.RandomNumber(
 		utils.ZeroInt,
 		utils.OneHundredInt,
-	)
-	if err != nil {
-		return false, err
+	).Int64() >= int64(
+		input.CreateProbability,
+	) {
+		return false
 	}
 
-	if rand.Int64() >= int64(input.CreateProbability) {
-		return false, nil
-	}
-
-	return true, nil
+	return true
 }
 
 // findBalanceWorkerInputValidation ensures the input to FindBalanceWorker
@@ -637,12 +623,7 @@ func (w *Worker) FindBalanceWorker(
 
 	// Randomly, we choose to generate a new account. If we didn't do this,
 	// we would never grow past 2 accounts for mocking transfers.
-	shouldCreate, err := shouldCreateRandomAccount(&input, len(accounts))
-	if err != nil {
-		return "", fmt.Errorf("%w: unable to determine if should create", err)
-	}
-
-	if shouldCreate {
+	if shouldCreateRandomAccount(&input, len(accounts)) {
 		return "", ErrCreateAccount
 	}
 
@@ -821,59 +802,4 @@ func HTTPRequestWorker(rawInput string) (string, error) {
 	}
 
 	return string(body), nil
-}
-
-// SetBlobWorker transactionally saves a key and value for use
-// across workflows.
-func (w *Worker) SetBlobWorker(
-	ctx context.Context,
-	dbTx database.Transaction,
-	rawInput string,
-) error {
-	var input job.SetBlobInput
-	err := job.UnmarshalInput([]byte(rawInput), &input)
-	if err != nil {
-		return fmt.Errorf("%w: %s", ErrInvalidInput, err.Error())
-	}
-
-	// By using interface{} for key, we can ensure that JSON
-	// objects with the same keys but in a different order are
-	// treated as equal.
-	if err := w.helper.SetBlob(ctx, dbTx, types.Hash(input.Key), input.Value); err != nil {
-		return fmt.Errorf("%w: %s", ErrActionFailed, err.Error())
-	}
-
-	return nil
-}
-
-// GetBlobWorker transactionally retrieves a value associated with
-// a key, if it exists.
-func (w *Worker) GetBlobWorker(
-	ctx context.Context,
-	dbTx database.Transaction,
-	rawInput string,
-) (string, error) {
-	var input job.GetBlobInput
-	err := job.UnmarshalInput([]byte(rawInput), &input)
-	if err != nil {
-		return "", fmt.Errorf("%w: %s", ErrInvalidInput, err.Error())
-	}
-
-	// By using interface{} for key, we can ensure that JSON
-	// objects with the same keys but in a different order are
-	// treated as equal.
-	exists, val, err := w.helper.GetBlob(ctx, dbTx, types.Hash(input.Key))
-	if err != nil {
-		return "", fmt.Errorf("%w: %s", ErrActionFailed, err.Error())
-	}
-
-	if !exists {
-		return "", fmt.Errorf(
-			"%w: key %s does not exist",
-			ErrActionFailed,
-			types.PrintStruct(input.Key),
-		)
-	}
-
-	return string(val), nil
 }
